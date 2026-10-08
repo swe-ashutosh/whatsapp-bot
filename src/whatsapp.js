@@ -88,7 +88,8 @@ const useSupabaseAuthState = async (sessionId) => {
 
 export async function connectToWhatsApp() {
     // Ab session local folder ki jagah Supabase me 'session-1' ke naam se save hoga
-    const { state, saveCreds } = await useSupabaseAuthState('session-1')
+    const sessionId = process.env.SESSION_ID || 'session-1'
+    const { state, saveCreds } = await useSupabaseAuthState(sessionId)
     const { version } = await fetchLatestBaileysVersion()
 
     sock = makeWASocket({

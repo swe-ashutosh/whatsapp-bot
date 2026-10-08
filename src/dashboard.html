@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Genius Library • WhatsApp Bot Controller</title>
+    <title>{{APP_NAME}} • WhatsApp Controller</title>
+    <link rel="icon" type="image/png" href="/BrandLogo.png" onerror="this.href='/iconlogo.png'">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -20,35 +21,39 @@
             }
         }
     </script>
-    <style>
-        @keyframes pulseSlow {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.85; transform: scale(1.02); }
-        }
-        .pulse-slow { animation: pulseSlow 3s infinite ease-in-out; }
-    </style>
 </head>
-<body class="bg-slate-100 min-h-screen flex items-center justify-center p-4 font-sans text-slate-800 antialiased">
+<body class="bg-gradient-to-br from-slate-100 via-slate-50 to-slate-200 min-h-screen flex flex-col items-center justify-center p-4 font-sans text-slate-800 antialiased">
     
-    <div class="max-w-md w-full bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200/80 transition-all">
+    <div class="max-w-md w-full bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200/90 transition-all my-4">
         
-        <!-- Header -->
-        <div class="bg-gradient-to-r from-navy to-navydark p-6 text-center text-white relative shadow-md">
-            <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md mb-2 border border-white/20">
-                <svg class="w-7 h-7 text-wa" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
-                </svg>
+        <!-- Header: Library Brand Name & Mascot -->
+        <div class="bg-gradient-to-r from-navy via-[#0D3B73] to-navydark p-6 text-center text-white relative shadow-inner">
+            <div class="flex items-center justify-center mb-3">
+                <div class="relative p-1 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 shadow-md">
+                    <img 
+                        src="/BrandLogo.png" 
+                        alt="Library Logo" 
+                        class="h-16 w-16 object-contain rounded-xl"
+                        onerror="this.onerror=null; this.src='/iconlogo.png';"
+                    />
+                </div>
             </div>
-            <h1 class="text-xl font-black tracking-tight text-white">Genius Library</h1>
-            <p class="text-xs text-slate-300 font-medium">WhatsApp Gateway & Automation Console</p>
+
+            <!-- Dynamic Library Brand Name -->
+            <h1 id="brandTitle" class="text-xl font-black tracking-tight text-white drop-shadow-sm">
+                {{APP_NAME}}
+            </h1>
+            <p class="text-xs text-slate-300 font-medium mt-0.5">
+                Official WhatsApp Gateway & Automation Console
+            </p>
             
-            <div class="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-[11px] font-semibold text-gold border border-gold/30">
+            <div class="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-[11px] font-semibold text-gold border border-gold/30 backdrop-blur-sm">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                 <span>Password Protected Console</span>
             </div>
         </div>
 
-        <!-- Dynamic Main Section -->
+        <!-- Dynamic Main Content (Login Card or WhatsApp Console) -->
         <div id="mainContent" class="p-6">
             <div class="flex flex-col items-center justify-center py-12">
                 <div class="h-8 w-8 border-4 border-navy border-t-transparent rounded-full animate-spin mb-3"></div>
@@ -56,29 +61,46 @@
             </div>
         </div>
 
-        <!-- Footer -->
-        <div class="bg-slate-50 px-6 py-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
-            <span>Genius Library Madhupur</span>
-            <span>v2.0 Secure</span>
+        <!-- Footer: Designed & Developed by Jugaduji -->
+        <div class="bg-slate-50 px-6 py-3.5 border-t border-slate-100 flex items-center justify-between text-xs">
+            <div class="flex items-center gap-2">
+                <img src="/iconlogo.png" alt="Jugaduji" class="h-5 w-5 rounded-full object-cover shadow-xs border border-slate-200" />
+                <span class="text-[11px] font-medium text-slate-500">
+                    Designed & Developed by <strong class="text-slate-800 font-bold hover:text-navy transition">Jugaduji</strong>
+                </span>
+            </div>
+            <span class="text-[10px] text-slate-400 font-mono font-semibold">v2.0 Secure</span>
         </div>
     </div>
 
     <script>
         let pollTimer = null;
+        let globalAppName = '{{APP_NAME}}';
 
         function getToken() {
-            return sessionStorage.getItem('genius_bot_token') || '';
+            return sessionStorage.getItem('bot_auth_token') || '';
         }
 
         function setToken(token) {
             if (token) {
-                sessionStorage.setItem('genius_bot_token', token);
+                sessionStorage.setItem('bot_auth_token', token);
             } else {
-                sessionStorage.removeItem('genius_bot_token');
+                sessionStorage.removeItem('bot_auth_token');
             }
         }
 
         async function init() {
+            // Fetch dynamic branding
+            try {
+                const confRes = await fetch('/api/config');
+                const conf = await confRes.json();
+                if (conf.appName) {
+                    globalAppName = conf.appName;
+                    document.getElementById('brandTitle').textContent = conf.appName;
+                    document.title = conf.appName + ' • WhatsApp Controller';
+                }
+            } catch {}
+
             const token = getToken();
             if (!token) {
                 renderLoginForm();
@@ -107,7 +129,7 @@
             if (pollTimer) clearInterval(pollTimer);
             const container = document.getElementById('mainContent');
             const errHtml = errorMsg ? `
-                <div class="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2 mb-3">
+                <div class="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2 mb-3 animate-shake">
                     <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
                     <span>${errorMsg}</span>
                 </div>
@@ -116,8 +138,8 @@
             container.innerHTML = `
                 <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
                     <div class="text-center mb-4">
-                        <h2 class="text-base font-bold text-navy">Admin Login Required</h2>
-                        <p class="text-xs text-slate-500 mt-0.5">Only authorized library admins can access or control this WhatsApp bot.</p>
+                        <h2 class="text-sm font-extrabold text-navy">Admin Login Required</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Please authenticate with your library admin credentials.</p>
                     </div>
 
                     ${errHtml}
@@ -128,9 +150,8 @@
                             type="text" 
                             id="loginUsername" 
                             required 
-                            value="geniuslibrarymadhupur@gmail.com" 
-                            placeholder="geniuslibrarymadhupur@gmail.com" 
-                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-navy focus:border-transparent transition"
+                            placeholder="Enter admin ID or email" 
+                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-navy focus:border-transparent transition bg-slate-50/50"
                         />
                     </div>
 
@@ -141,7 +162,7 @@
                             id="loginPassword" 
                             required 
                             placeholder="Enter admin password" 
-                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-navy focus:border-transparent transition"
+                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-navy focus:border-transparent transition bg-slate-50/50"
                         />
                     </div>
 
@@ -161,7 +182,7 @@
             e.preventDefault();
             const btn = document.getElementById('loginBtn');
             btn.disabled = true;
-            btn.innerHTML = 'Verifying...';
+            btn.innerHTML = 'Verifying Credentials...';
 
             const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value;
@@ -192,8 +213,8 @@
                 <!-- Session Bar -->
                 <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 text-xs">
                     <div class="flex items-center gap-1.5 text-slate-600">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span class="font-bold truncate max-w-[190px]">${user || 'Admin'}</span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span class="font-bold truncate max-w-[190px] text-slate-800">${user || 'Admin'}</span>
                     </div>
                     <button 
                         onclick="lockConsole()" 
@@ -206,8 +227,8 @@
 
                 <!-- Status Viewport -->
                 <div id="botStatusViewport" class="flex flex-col items-center justify-center min-h-[280px]">
-                    <div class="h-8 w-8 border-4 border-wa border-t-transparent rounded-full animate-spin mb-3"></div>
-                    <p class="text-xs text-slate-500 font-medium">Loading WhatsApp Status...</p>
+                    <div class="h-8 w-8 border-4 border-navy border-t-transparent rounded-full animate-spin mb-3"></div>
+                    <p class="text-xs text-slate-500 font-medium">Checking WhatsApp Status...</p>
                 </div>
             `;
         }
@@ -223,7 +244,7 @@
                 
                 if (res.status === 401) {
                     setToken('');
-                    renderLoginForm('Session expired or unauthorized. Please login again.');
+                    renderLoginForm('Session expired. Please log in again.');
                     return;
                 }
 
@@ -235,11 +256,11 @@
                     viewport.innerHTML = `
                         <div class="w-full space-y-4">
                             <!-- Connected Card -->
-                            <div class="flex items-center justify-between bg-emerald-50 border border-emerald-200/80 p-4 rounded-2xl">
+                            <div class="flex items-center justify-between bg-emerald-50 border border-emerald-200/80 p-4 rounded-2xl shadow-xs">
                                 <div class="flex items-center gap-3">
-                                    <div class="relative flex h-3 w-3">
+                                    <div class="relative flex h-3.5 w-3.5">
                                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                        <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                                        <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
                                     </div>
                                     <div>
                                         <p class="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">Status</p>
@@ -271,7 +292,7 @@
                                 </div>
                             </div>
 
-                            <!-- Logout WhatsApp Device (Requires confirmation) -->
+                            <!-- Logout WhatsApp Device -->
                             <div class="pt-2">
                                 <button 
                                     onclick="confirmLogoutDevice()" 
@@ -300,8 +321,8 @@
                     viewport.innerHTML = `
                         <div class="text-center py-6">
                             <div class="h-8 w-8 border-4 border-navy border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                            <p class="text-xs font-bold text-slate-700">Initializing WhatsApp Engine...</p>
-                            <p class="text-[11px] text-slate-400 mt-1">Waiting for QR or connection status</p>
+                            <p class="text-xs font-bold text-slate-700">Connecting to WhatsApp Engine...</p>
+                            <p class="text-[11px] text-slate-400 mt-1">Generating QR session...</p>
                         </div>
                     `;
                 }
@@ -311,7 +332,7 @@
         }
 
         async function confirmLogoutDevice() {
-            const confirmed = confirm('⚠️ Kya aap sach me library ka WhatsApp device logout karna chahte hain?\n\nIske baad check-in/out messages bhejna band ho jayega jab tak aap firse QR scan na karein.');
+            const confirmed = confirm('⚠️ Kya aap is library ka WhatsApp device logout karna chahte hain?\n\nIske baad attendance check-in/out alerts band ho jayenge jab tak firse QR scan na karein.');
             if (!confirmed) return;
 
             const token = getToken();
@@ -322,7 +343,7 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert('✓ WhatsApp device successfully logged out!');
+                    alert('✓ WhatsApp device unlinked successfully!');
                     checkStatus();
                 } else {
                     alert('Error: ' + (data.error || 'Failed to logout'));

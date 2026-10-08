@@ -1,6 +1,6 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
-import { readFileSync } from 'fs'
+import { readFileSync, existsSync } from 'fs'
 import QRCode from 'qrcode'
 import crypto from 'crypto'
 import dotenv from 'dotenv'
@@ -9,22 +9,24 @@ import { connectToWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, logoutWhatsA
 
 const app = new Hono()
 
-// Supported Admin Credentials
-const PRIMARY_ADMIN = (process.env.ADMIN_USER || 'geniuslibrarymadhupur@gmail.com').toLowerCase().trim()
+// Universal Environment Variables
+const APP_NAME = process.env.APP_NAME || 'Library WhatsApp Gateway'
+const customAdmin = process.env.ADMIN_USER ? process.env.ADMIN_USER.toLowerCase().trim() : null
 const ALLOWED_USERS = [
-    PRIMARY_ADMIN,
+    customAdmin,
     'admin',
     'genius'
-]
+].filter(Boolean)
+
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '$Genius@2026.in'
 const ALLOWED_API_KEYS = [
-    process.env.API_KEY || 'genius123',
+    process.env.API_KEY,
     'genius123',
-    'sanskar123'
-]
+    'sanskar123',
+    'secret123'
+].filter(Boolean)
 
-// In-memory active authenticated session tokens
-// token -> { createdAt: number, username: string }
+// In-memory active session tokens
 const activeSessions = new Map()
 
 function generateSessionToken(username) {
@@ -37,7 +39,6 @@ function isValidSession(token) {
     if (!token) return false
     const session = activeSessions.get(token)
     if (!session) return false
-    // 24 hour session expiration
     if (Date.now() - session.createdAt > 24 * 60 * 60 * 1000) {
         activeSessions.delete(token)
         return false
@@ -46,13 +47,13 @@ function isValidSession(token) {
 }
 
 function checkAuthorized(c) {
-    // 1. Check API Key header (Used by Cloudflare Worker API & Web queue)
+    // 1. API Key Header (Server-to-Server from Cloudflare Worker)
     const apiKey = c.req.header('x-api-key')
     if (apiKey && ALLOWED_API_KEYS.includes(apiKey.trim())) {
         return { authorized: true, type: 'api_key', user: 'system' }
     }
 
-    // 2. Check Bearer Token header (Used by Web Dashboard frontend)
+    // 2. Bearer Token Header (Frontend Dashboard)
     const authHeader = c.req.header('authorization') || ''
     if (authHeader.startsWith('Bearer ')) {
         const token = authHeader.slice(7).trim()
@@ -62,7 +63,7 @@ function checkAuthorized(c) {
         }
     }
 
-    // 3. Check Cookie
+    // 3. Cookie
     const cookieHeader = c.req.header('cookie') || ''
     const match = cookieHeader.match(/bot_session=([a-f0-9]+)/)
     if (match && isValidSession(match[1])) {
@@ -70,7 +71,7 @@ function checkAuthorized(c) {
         return { authorized: true, type: 'cookie', user: sess?.username || 'admin' }
     }
 
-    // 4. Check HTTP Basic Auth header as fallback
+    // 4. Basic Auth Fallback
     if (authHeader.startsWith('Basic ')) {
         try {
             const b64 = authHeader.slice(6).trim()
@@ -86,13 +87,45 @@ function checkAuthorized(c) {
 }
 
 // -------------------------------------------------------------
-// ROUTES
+// STATIC ASSET ROUTES (Brand Logos)
 // -------------------------------------------------------------
+app.get('/BrandLogo.png', (c) => {
+    try {
+        if (existsSync('./BrandLogo.png')) {
+            const img = readFileSync('./BrandLogo.png')
+            c.header('Content-Type', 'image/png')
+            c.header('Cache-Control', 'public, max-age=86400')
+            return c.body(img)
+        }
+    } catch {}
+    return c.text('Not found', 404)
+})
 
-// Web Dashboard UI
+app.get('/iconlogo.png', (c) => {
+    try {
+        if (existsSync('./iconlogo.png')) {
+            const img = readFileSync('./iconlogo.png')
+            c.header('Content-Type', 'image/png')
+            c.header('Cache-Control', 'public, max-age=86400')
+            return c.body(img)
+        }
+    } catch {}
+    return c.text('Not found', 404)
+})
+
+// Public Config (App Name & Branding)
+app.get('/api/config', (c) => {
+    return c.json({
+        appName: APP_NAME,
+        poweredBy: 'Jugaduji'
+    })
+})
+
+// Web Dashboard UI (Dynamic Client Name Injected)
 app.get('/', (c) => {
     try {
-        const html = readFileSync('./src/dashboard.html', 'utf-8')
+        let html = readFileSync('./src/dashboard.html', 'utf-8')
+        html = html.replace(/{{APP_NAME}}/g, APP_NAME)
         return c.html(html)
     } catch (error) {
         return c.text('Dashboard file not found!', 500)
@@ -114,7 +147,7 @@ app.post('/api/login', async (c) => {
         const isValidPass = password === ADMIN_PASSWORD
 
         if (!isValidUser || !isValidPass) {
-            return c.json({ success: false, error: 'Galat ID ya Password! Sirf authorized admin hi access kar sakte hain.' }, 401)
+            return c.json({ success: false, error: 'Galat ID ya Password! Authorized admin credentials dalein.' }, 401)
         }
 
         const token = generateSessionToken(username)
@@ -123,23 +156,24 @@ app.post('/api/login', async (c) => {
             success: true,
             token,
             username,
+            appName: APP_NAME,
             message: 'Access granted!'
         })
     } catch (err) {
-        return c.json({ success: false, error: 'Login process error: ' + err.message }, 500)
+        return c.json({ success: false, error: 'Login error: ' + err.message }, 500)
     }
 })
 
-// Authentication: Check current session
+// Check Authentication Session
 app.get('/api/check-auth', (c) => {
     const auth = checkAuthorized(c)
     if (auth.authorized) {
-        return c.json({ authenticated: true, user: auth.user })
+        return c.json({ authenticated: true, user: auth.user, appName: APP_NAME })
     }
-    return c.json({ authenticated: false })
+    return c.json({ authenticated: false, appName: APP_NAME })
 })
 
-// Authentication: Logout from web session / lock console
+// Logout / Lock Web Console
 app.post('/api/logout-session', (c) => {
     const authHeader = c.req.header('authorization') || ''
     if (authHeader.startsWith('Bearer ')) {
@@ -152,10 +186,10 @@ app.post('/api/logout-session', (c) => {
         activeSessions.delete(match[1])
     }
     c.header('Set-Cookie', 'bot_session=; Path=/; HttpOnly; Max-Age=0')
-    return c.json({ success: true, message: 'Console locked successfully.' })
+    return c.json({ success: true, message: 'Console locked.' })
 })
 
-// Protected: Get WhatsApp Connection & QR Status
+// Protected: Live WhatsApp Status & QR Code
 app.get('/status', async (c) => {
     const auth = checkAuthorized(c)
     if (!auth.authorized) {
@@ -179,15 +213,16 @@ app.get('/status', async (c) => {
         isConnected: status.isConnected,
         userNumber: status.userNumber,
         qrImage: qrImage,
-        stats: status.stats
+        stats: status.stats,
+        appName: APP_NAME
     })
 })
 
-// Protected: Send WhatsApp Message (Worker or authorized session)
+// Protected: Send Message Endpoint
 app.post('/send-message', async (c) => {
     const auth = checkAuthorized(c)
     if (!auth.authorized) {
-        return c.json({ success: false, error: 'Galat API Key ya Session! ID & Password required.' }, 401)
+        return c.json({ success: false, error: 'Unauthorized: Valid API Key or Session required.' }, 401)
     }
 
     try {
@@ -204,7 +239,7 @@ app.post('/send-message', async (c) => {
     }
 })
 
-// Protected: Disconnect / Logout WhatsApp Device
+// Protected: Logout / Unlink WhatsApp Device
 app.post('/logout', async (c) => {
     const auth = checkAuthorized(c)
     if (!auth.authorized) {
@@ -222,4 +257,4 @@ connectToWhatsApp()
 
 const port = process.env.PORT || 3000
 serve({ fetch: app.fetch, port })
-console.log(`🚀 Server chal raha hai: http://localhost:${port}`)
+console.log(`🚀 Universal WhatsApp Server chal raha hai: http://localhost:${port} [${APP_NAME}]`)
