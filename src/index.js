@@ -140,14 +140,14 @@ app.post('/api/login', async (c) => {
         const password = String(body.password || '')
 
         if (!username || !password) {
-            return c.json({ success: false, error: 'ID aur Password dono zaruri hain.' }, 400)
+            return c.json({ success: false, error: 'Both ID and Password are required.' }, 400)
         }
 
         const isValidUser = ALLOWED_USERS.includes(username)
         const isValidPass = password === ADMIN_PASSWORD
 
         if (!isValidUser || !isValidPass) {
-            return c.json({ success: false, error: 'Galat ID ya Password! Authorized admin credentials dalein.' }, 401)
+            return c.json({ success: false, error: 'Invalid ID or Password! Please provide authorized admin credentials.' }, 401)
         }
 
         const token = generateSessionToken(username)
@@ -229,7 +229,7 @@ app.post('/send-message', async (c) => {
         const body = await c.req.json()
         const { number, message } = body
         if (!number || !message) {
-            return c.json({ success: false, error: 'Number aur message dono zaruri hain.' }, 400)
+            return c.json({ success: false, error: 'Both phone number and message are required.' }, 400)
         }
         
         const result = await sendWhatsAppMessage(number, message)
@@ -245,7 +245,7 @@ app.post('/logout', async (c) => {
     if (!auth.authorized) {
         return c.json({
             success: false,
-            error: 'Access Denied: Sirf authorized admin hi WhatsApp device logout kar sakte hain. ID & Password required.'
+            error: 'Access Denied: Only authorized administrators can logout the WhatsApp device.'
         }, 401)
     }
 
@@ -257,4 +257,4 @@ connectToWhatsApp()
 
 const port = process.env.PORT || 3000
 serve({ fetch: app.fetch, port })
-console.log(`🚀 Universal WhatsApp Server chal raha hai: http://localhost:${port} [${APP_NAME}]`)
+console.log(`🚀 Universal WhatsApp Server running on: http://localhost:${port} [${APP_NAME}]`)

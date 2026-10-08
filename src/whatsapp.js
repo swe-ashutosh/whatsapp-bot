@@ -22,7 +22,7 @@ let userNumber = null;
 
 let totalMessagesSent = 0;
 let botStartTime = Date.now();
-let lastMessageTime = "Abhi tak koi nahi";
+let lastMessageTime = "None yet";
 
 const messageQueue = [];
 let isProcessingQueue = false;
@@ -87,7 +87,7 @@ const useSupabaseAuthState = async (sessionId) => {
 }
 
 export async function connectToWhatsApp() {
-    // Ab session local folder ki jagah Supabase me 'session-1' ke naam se save hoga
+    // Store Baileys session remotely in Supabase
     const sessionId = process.env.SESSION_ID || 'session-1'
     const { state, saveCreds } = await useSupabaseAuthState(sessionId)
     const { version } = await fetchLatestBaileysVersion()
@@ -135,7 +135,7 @@ const processQueue = async () => {
             await sock.sendMessage(jid, { text });
             totalMessagesSent++;
             lastMessageTime = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            resolve({ success: true, message: "Message chala gaya!" });
+            resolve({ success: true, message: "Message dispatched successfully!" });
         } catch (error) {
             reject(new Error(error.message));
         }
@@ -157,7 +157,7 @@ export const getWhatsAppStatus = () => {
 
 export const sendWhatsAppMessage = (number, text) => {
     return new Promise((resolve, reject) => {
-        if (!isConnected) return reject(new Error("Bhai, WhatsApp abhi connect nahi hai!"));
+        if (!isConnected) return reject(new Error("WhatsApp device is currently disconnected!"));
         const jid = number.includes('@s.whatsapp.net') ? number : `${number}@s.whatsapp.net`;
         messageQueue.push({ jid, text, resolve, reject });
         processQueue();

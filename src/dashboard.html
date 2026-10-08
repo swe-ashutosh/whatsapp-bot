@@ -200,7 +200,7 @@
                     checkStatus();
                     startPolling();
                 } else {
-                    renderLoginForm(data.error || 'Galat ID ya Password!');
+                    renderLoginForm(data.error || 'Invalid ID or Password! Please check your credentials.');
                 }
             } catch (err) {
                 renderLoginForm('Network error during login: ' + err.message);
@@ -332,7 +332,7 @@
         }
 
         async function confirmLogoutDevice() {
-            const confirmed = confirm('⚠️ Kya aap is library ka WhatsApp device logout karna chahte hain?\n\nIske baad attendance check-in/out alerts band ho jayenge jab tak firse QR scan na karein.');
+            const confirmed = confirm('⚠️ Are you sure you want to unlink and logout this library WhatsApp device?\n\nAutomated attendance check-in/out alerts will stop until you scan the QR code again.');
             if (!confirmed) return;
 
             const token = getToken();
