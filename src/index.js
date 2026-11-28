@@ -281,15 +281,17 @@ app.get('/api/activation-info', async (c) => {
     const sessionId = process.env.SESSION_ID || 'session-1'
     const botUrl = (process.env.RENDER_EXTERNAL_URL || '').replace(/\/+$/, '')
     const apiKey = process.env.API_KEY || ''
+    const sessionSecret = process.env.D1_SYNC_KEY || ''
     const baseActivateUrl = (process.env.HISABDESK_ACTIVATE_URL || 'https://app.hisabdesk.in').replace(/\/+$/, '')
 
-    const params = new URLSearchParams({ sessionId, botUrl, apiKey })
+    // Put secrets in URL fragment (#) so they are never sent in Referer headers or server logs
+    const params = new URLSearchParams({ sessionId, botUrl, apiKey, sessionSecret })
     return c.json({
         success: true,
         sessionId,
         botUrl,
         apiKey,
-        activateUrl: `${baseActivateUrl}?${params.toString()}`
+        activateUrl: `${baseActivateUrl}/#wa-activate&${params.toString()}`
     })
 })
 

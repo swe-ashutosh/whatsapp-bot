@@ -94,7 +94,7 @@ export function createD1Client(env = process.env, fetchImpl = fetch) {
         const syncKey = (env.D1_SYNC_KEY || '').trim()
         const headers = {
             'Content-Type': 'application/json',
-            ...(syncKey ? { 'x-api-key': syncKey } : {})
+            ...(syncKey ? { 'x-session-secret': syncKey } : {})
         }
 
         return {

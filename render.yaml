@@ -21,6 +21,8 @@ services:
         generateValue: true
       - key: D1_SYNC_URL
         value: https://api.hisabdesk.in/api/hb/whatsapp/session
+      - key: D1_SYNC_KEY
+        generateValue: true
       - key: HISABDESK_ACTIVATE_URL
         value: https://app.hisabdesk.in
       - key: KEEP_ALIVE

@@ -7,7 +7,8 @@ process.env.API_KEY = 'test-api-key-123'
 process.env.ADMIN_USER = 'admin'
 process.env.ADMIN_PASSWORD = 'hisabdesk123'
 process.env.APP_NAME = 'HisabDesk Test Bot'
-process.env.SESSION_ID = 'test-session-xyz'
+process.env.SESSION_ID = 'test-session-xyz-1234567890'
+process.env.D1_SYNC_KEY = 'test-session-secret-1234567890'
 process.env.RENDER_EXTERNAL_URL = 'https://hisabdesk-whatsapp-bot-test.onrender.com'
 process.env.HISABDESK_ACTIVATE_URL = 'https://hisabdesk.com/whatsapp/activate'
 process.env.AUTH_DIR = './.tmp-test-auth'
@@ -141,16 +142,17 @@ test('forceful password change blocks /status, /send-message, /logout until pass
         assert.equal(statusRes.status, 200)
         assert.equal((await statusRes.json()).authenticated, true)
 
-        // /api/activation-info returns zero-copy-paste link
+        // /api/activation-info returns zero-copy-paste link using URL fragment (#) so secrets never hit Referer/logs
         const actRes = await app.request('/api/activation-info', {
             headers: { Authorization: `Bearer ${token}` }
         })
         assert.equal(actRes.status, 200)
         const actBody = await actRes.json()
-        assert.equal(actBody.sessionId, 'test-session-xyz')
+        assert.equal(actBody.sessionId, 'test-session-xyz-1234567890')
         assert.equal(actBody.botUrl, 'https://hisabdesk-whatsapp-bot-test.onrender.com')
         assert.equal(actBody.apiKey, 'test-api-key-123')
-        assert.match(actBody.activateUrl, /^https:\/\/hisabdesk\.com\/whatsapp\/activate\?/)
+        assert.match(actBody.activateUrl, /^https:\/\/hisabdesk\.com\/whatsapp\/activate\/#wa-activate&/)
+        assert.doesNotMatch(actBody.activateUrl, /\?.*apiKey=/)
 
         // /send-message validates payload & returns 500 when disconnected
         const badSend = await app.request('/send-message', {
@@ -272,6 +274,7 @@ test('repo config removes Supabase and provides true 1-click Render blueprint', 
     assert.match(renderYaml, /pnpm install --frozen-lockfile/)
     assert.match(renderYaml, /pnpm start/)
     assert.match(renderYaml, /D1_SYNC_URL/)
+    assert.match(renderYaml, /D1_SYNC_KEY[\s\S]*generateValue:\s*true/)
     assert.match(renderYaml, /HISABDESK_ACTIVATE_URL/)
     assert.match(renderYaml, /KEEP_ALIVE/)
     assert.match(renderYaml, /ADMIN_PASSWORD[\s\S]*value:\s*hisabdesk123/)
