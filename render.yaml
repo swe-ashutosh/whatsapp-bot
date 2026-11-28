@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: hisabdesk-whatsapp-bot
+    runtime: node
+    plan: free
+    buildCommand: pnpm install --frozen-lockfile
+    startCommand: pnpm start
+    healthCheckPath: /health
+    envVars:
+      - key: APP_NAME
+        value: HisabDesk WhatsApp Gateway
+      - key: PORT
+        value: 3000
+      - key: API_KEY
+        generateValue: true
+      - key: ADMIN_USER
+        value: admin
+      - key: ADMIN_PASSWORD
+        value: hisabdesk123
+      - key: SESSION_ID
+        generateValue: true
+      - key: D1_SYNC_URL
+        value: https://api.hisabdesk.in/api/hb/whatsapp/session
+      - key: HISABDESK_ACTIVATE_URL
+        value: https://app.hisabdesk.in
+      - key: KEEP_ALIVE
+        value: "true"
+      - key: AUTH_DIR
+        value: ./auth_info_baileys

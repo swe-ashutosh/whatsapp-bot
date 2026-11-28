@@ -5,26 +5,39 @@ import QRCode from 'qrcode'
 import crypto from 'crypto'
 import dotenv from 'dotenv'
 dotenv.config()
-import { connectToWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, logoutWhatsApp } from './whatsapp.js'
+import { connectToWhatsApp, flushWhatsAppSession, getWhatsAppStatus, sendWhatsAppMessage, logoutWhatsApp } from './whatsapp.js'
+import { hashPassword, loadPersistedAuthMeta, savePersistedAuthMeta, verifyPassword } from './d1Auth.js'
 
 const app = new Hono()
 
 // Universal Environment Variables
-const APP_NAME = process.env.APP_NAME || 'Library WhatsApp Gateway'
+const APP_NAME = process.env.APP_NAME || 'HisabDesk WhatsApp Gateway'
 const customAdmin = process.env.ADMIN_USER ? process.env.ADMIN_USER.toLowerCase().trim() : null
-const ALLOWED_USERS = [
-    customAdmin,
-    'admin',
-    'genius'
-].filter(Boolean)
+const ALLOWED_USERS = [customAdmin, 'admin'].filter(Boolean)
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '$Genius@2026.in'
-const ALLOWED_API_KEYS = [
-    process.env.API_KEY,
-    'genius123',
-    'sanskar123',
-    'secret123'
-].filter(Boolean)
+const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'hisabdesk123'
+const ALLOWED_API_KEYS = [process.env.API_KEY].filter(Boolean)
+
+let passwordHash = null
+let mustChangePassword = true
+let authMetaLoaded = false
+
+async function ensureAuthMetaLoaded() {
+    if (authMetaLoaded) return
+    authMetaLoaded = true
+    const saved = await loadPersistedAuthMeta()
+    if (saved?.passwordHash) {
+        passwordHash = saved.passwordHash
+        mustChangePassword = Boolean(saved.mustChangePassword)
+    }
+}
+
+function isAdminPasswordValid(candidate) {
+    if (passwordHash) {
+        return verifyPassword(candidate, passwordHash)
+    }
+    return candidate === DEFAULT_ADMIN_PASSWORD
+}
 
 // In-memory active session tokens
 const activeSessions = new Map()
@@ -47,16 +60,19 @@ function isValidSession(token) {
 }
 
 function checkAuthorized(c) {
-    // 1. API Key Header (Server-to-Server from Cloudflare Worker)
+    // 1. API Key Header (Server-to-Server from HisabDesk)
     const apiKey = c.req.header('x-api-key')
     if (apiKey && ALLOWED_API_KEYS.includes(apiKey.trim())) {
         return { authorized: true, type: 'api_key', user: 'system' }
     }
 
-    // 2. Bearer Token Header (Frontend Dashboard)
+    // 2. Bearer Token Header (API Key from HisabDesk or Frontend Dashboard session)
     const authHeader = c.req.header('authorization') || ''
     if (authHeader.startsWith('Bearer ')) {
         const token = authHeader.slice(7).trim()
+        if (ALLOWED_API_KEYS.includes(token)) {
+            return { authorized: true, type: 'api_key', user: 'system' }
+        }
         if (isValidSession(token)) {
             const sess = activeSessions.get(token)
             return { authorized: true, type: 'session', user: sess?.username || 'admin' }
@@ -77,13 +93,24 @@ function checkAuthorized(c) {
             const b64 = authHeader.slice(6).trim()
             const decoded = Buffer.from(b64, 'base64').toString('utf-8')
             const [u, p] = decoded.split(':')
-            if (u && p && ALLOWED_USERS.includes(u.toLowerCase().trim()) && p === ADMIN_PASSWORD) {
+            if (u && p && ALLOWED_USERS.includes(u.toLowerCase().trim()) && isAdminPasswordValid(p)) {
                 return { authorized: true, type: 'basic_auth', user: u }
             }
-        } catch {}
+        } catch { }
     }
 
     return { authorized: false }
+}
+
+function requirePasswordReady(c) {
+    if (mustChangePassword) {
+        return c.json({
+            success: false,
+            mustChangePassword: true,
+            error: 'Password change required before using bot.'
+        }, 403)
+    }
+    return null
 }
 
 // -------------------------------------------------------------
@@ -97,7 +124,7 @@ app.get('/BrandLogo.png', (c) => {
             c.header('Cache-Control', 'public, max-age=86400')
             return c.body(img)
         }
-    } catch {}
+    } catch { }
     return c.text('Not found', 404)
 })
 
@@ -109,8 +136,23 @@ app.get('/iconlogo.png', (c) => {
             c.header('Cache-Control', 'public, max-age=86400')
             return c.body(img)
         }
-    } catch {}
+    } catch { }
     return c.text('Not found', 404)
+})
+
+// Health check endpoint for Render & self-ping (0 Worker/D1 calls)
+app.get('/health', (c) => {
+    const status = getWhatsAppStatus()
+    return c.json({
+        ok: true,
+        status: 'healthy',
+        appName: APP_NAME,
+        mustChangePassword,
+        whatsapp: {
+            isConnected: status.isConnected,
+            userNumber: status.userNumber
+        }
+    })
 })
 
 // Public Config (App Name & Branding)
@@ -134,6 +176,7 @@ app.get('/', (c) => {
 
 // Authentication: Login with ID & Password
 app.post('/api/login', async (c) => {
+    await ensureAuthMetaLoaded()
     try {
         const body = await c.req.json()
         const username = (body.username || body.email || body.id || '').toLowerCase().trim()
@@ -144,7 +187,7 @@ app.post('/api/login', async (c) => {
         }
 
         const isValidUser = ALLOWED_USERS.includes(username)
-        const isValidPass = password === ADMIN_PASSWORD
+        const isValidPass = isAdminPasswordValid(password)
 
         if (!isValidUser || !isValidPass) {
             return c.json({ success: false, error: 'Invalid ID or Password! Please provide authorized admin credentials.' }, 401)
@@ -157,6 +200,7 @@ app.post('/api/login', async (c) => {
             token,
             username,
             appName: APP_NAME,
+            mustChangePassword,
             message: 'Access granted!'
         })
     } catch (err) {
@@ -165,12 +209,88 @@ app.post('/api/login', async (c) => {
 })
 
 // Check Authentication Session
-app.get('/api/check-auth', (c) => {
+app.get('/api/check-auth', async (c) => {
+    await ensureAuthMetaLoaded()
     const auth = checkAuthorized(c)
     if (auth.authorized) {
-        return c.json({ authenticated: true, user: auth.user, appName: APP_NAME })
+        return c.json({
+            authenticated: true,
+            user: auth.user,
+            appName: APP_NAME,
+            mustChangePassword
+        })
     }
     return c.json({ authenticated: false, appName: APP_NAME })
+})
+
+// Change Admin Password (Persisted as scrypt hash in D1 or local storage)
+app.post('/api/change-password', async (c) => {
+    await ensureAuthMetaLoaded()
+    const auth = checkAuthorized(c)
+    if (!auth.authorized) {
+        return c.json({ success: false, error: 'Unauthorized: Please login first.' }, 401)
+    }
+
+    try {
+        const body = await c.req.json()
+        const currentPassword = String(body.currentPassword || '')
+        const newPassword = String(body.newPassword || '')
+
+        if (!currentPassword || !newPassword) {
+            return c.json({ success: false, error: 'Current and new password are required.' }, 400)
+        }
+        if (!isAdminPasswordValid(currentPassword)) {
+            return c.json({ success: false, error: 'Current password is incorrect.' }, 401)
+        }
+        if (newPassword.length < 6) {
+            return c.json({ success: false, error: 'New password must be at least 6 characters.' }, 400)
+        }
+        if (newPassword === currentPassword) {
+            return c.json({ success: false, error: 'New password must be different from current password.' }, 400)
+        }
+
+        const nextHash = hashPassword(newPassword)
+        const saved = await savePersistedAuthMeta({
+            passwordHash: nextHash,
+            mustChangePassword: false
+        })
+        passwordHash = nextHash
+        mustChangePassword = false
+
+        return c.json({
+            success: true,
+            mustChangePassword: false,
+            storage: saved.storage,
+            message: 'Admin password updated successfully!'
+        })
+    } catch (err) {
+        return c.json({ success: false, error: 'Failed to update password: ' + err.message }, 500)
+    }
+})
+
+// HisabDesk Activation Link Info (Zero Copy-Paste)
+app.get('/api/activation-info', async (c) => {
+    await ensureAuthMetaLoaded()
+    const auth = checkAuthorized(c)
+    if (!auth.authorized) {
+        return c.json({ success: false, error: 'Unauthorized' }, 401)
+    }
+    const blocked = requirePasswordReady(c)
+    if (blocked) return blocked
+
+    const sessionId = process.env.SESSION_ID || 'session-1'
+    const botUrl = (process.env.RENDER_EXTERNAL_URL || '').replace(/\/+$/, '')
+    const apiKey = process.env.API_KEY || ''
+    const baseActivateUrl = (process.env.HISABDESK_ACTIVATE_URL || 'https://app.hisabdesk.in').replace(/\/+$/, '')
+
+    const params = new URLSearchParams({ sessionId, botUrl, apiKey })
+    return c.json({
+        success: true,
+        sessionId,
+        botUrl,
+        apiKey,
+        activateUrl: `${baseActivateUrl}?${params.toString()}`
+    })
 })
 
 // Logout / Lock Web Console
@@ -191,6 +311,7 @@ app.post('/api/logout-session', (c) => {
 
 // Protected: Live WhatsApp Status & QR Code
 app.get('/status', async (c) => {
+    await ensureAuthMetaLoaded()
     const auth = checkAuthorized(c)
     if (!auth.authorized) {
         return c.json({
@@ -199,10 +320,12 @@ app.get('/status', async (c) => {
             error: 'Access Denied: Please log in with authorized ID and Password.'
         }, 401)
     }
+    const blocked = requirePasswordReady(c)
+    if (blocked) return blocked
 
     const status = getWhatsAppStatus()
     let qrImage = null
-    
+
     if (status.qrCodeData) {
         qrImage = await QRCode.toDataURL(status.qrCodeData)
     }
@@ -218,29 +341,37 @@ app.get('/status', async (c) => {
     })
 })
 
-// Protected: Send Message Endpoint
-app.post('/send-message', async (c) => {
+// Protected: Send Message Endpoint (supports both /send-message and /send, {number,message} and {to,text})
+async function handleSendMessage(c) {
+    await ensureAuthMetaLoaded()
     const auth = checkAuthorized(c)
     if (!auth.authorized) {
         return c.json({ success: false, error: 'Unauthorized: Valid API Key or Session required.' }, 401)
     }
+    const blocked = requirePasswordReady(c)
+    if (blocked) return blocked
 
     try {
         const body = await c.req.json()
-        const { number, message } = body
+        const number = body.number || body.to
+        const message = body.message || body.text
         if (!number || !message) {
             return c.json({ success: false, error: 'Both phone number and message are required.' }, 400)
         }
-        
+
         const result = await sendWhatsAppMessage(number, message)
         return c.json(result)
     } catch (error) {
         return c.json({ success: false, error: error.message }, 500)
     }
-})
+}
+
+app.post('/send-message', handleSendMessage)
+app.post('/send', handleSendMessage)
 
 // Protected: Logout / Unlink WhatsApp Device
 app.post('/logout', async (c) => {
+    await ensureAuthMetaLoaded()
     const auth = checkAuthorized(c)
     if (!auth.authorized) {
         return c.json({
@@ -248,13 +379,38 @@ app.post('/logout', async (c) => {
             error: 'Access Denied: Only authorized administrators can logout the WhatsApp device.'
         }, 401)
     }
+    const blocked = requirePasswordReady(c)
+    if (blocked) return blocked
 
     await logoutWhatsApp()
     return c.json({ success: true, message: 'WhatsApp device unlinked successfully!' })
 })
 
-connectToWhatsApp()
+export { app }
 
-const port = process.env.PORT || 3000
-serve({ fetch: app.fetch, port })
-console.log(`🚀 Universal WhatsApp Server running on: http://localhost:${port} [${APP_NAME}]`)
+if (process.env.NODE_ENV !== 'test') {
+    ensureAuthMetaLoaded().catch(() => { })
+    connectToWhatsApp()
+
+    const port = process.env.PORT || 3000
+    serve({ fetch: app.fetch, port })
+    console.log(`🚀 Universal WhatsApp Server running on: http://localhost:${port} [${APP_NAME}]`)
+
+    // Render self-ping to keep instance awake (0 Worker/D1 calls)
+    const externalUrl = process.env.RENDER_EXTERNAL_URL?.trim()?.replace(/\/+$/, '')
+    if (externalUrl && process.env.KEEP_ALIVE !== 'false') {
+        const pingIntervalMs = Number(process.env.KEEP_ALIVE_INTERVAL_MS || 10 * 60 * 1000)
+        const timer = setInterval(() => {
+            fetch(`${externalUrl}/health`).catch(() => { })
+        }, pingIntervalMs)
+        if (typeof timer.unref === 'function') timer.unref()
+        console.log(`[KeepAlive] Self-ping enabled every ${Math.round(pingIntervalMs / 60000)}m -> ${externalUrl}/health`)
+    }
+
+    const handleShutdown = async () => {
+        await flushWhatsAppSession()
+        process.exit(0)
+    }
+    process.on('SIGTERM', handleShutdown)
+    process.on('SIGINT', handleShutdown)
+}

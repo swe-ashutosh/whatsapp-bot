@@ -113,9 +113,13 @@
                 });
                 const data = await res.json();
                 if (data.authenticated) {
-                    renderDashboard(data.user);
-                    checkStatus();
-                    startPolling();
+                    if (data.mustChangePassword) {
+                        renderForcePasswordChange(data.user);
+                    } else {
+                        renderDashboard(data.user);
+                        checkStatus();
+                        startPolling();
+                    }
                 } else {
                     setToken('');
                     renderLoginForm();
@@ -196,14 +200,98 @@
                 const data = await res.json();
                 if (data.success && data.token) {
                     setToken(data.token);
-                    renderDashboard(data.username);
-                    checkStatus();
-                    startPolling();
+                    if (data.mustChangePassword) {
+                        renderForcePasswordChange(data.username);
+                    } else {
+                        renderDashboard(data.username);
+                        checkStatus();
+                        startPolling();
+                    }
                 } else {
                     renderLoginForm(data.error || 'Invalid ID or Password! Please check your credentials.');
                 }
             } catch (err) {
                 renderLoginForm('Network error during login: ' + err.message);
+            }
+        }
+
+        function renderForcePasswordChange(user, errorMsg = '') {
+            if (pollTimer) clearInterval(pollTimer);
+            const container = document.getElementById('mainContent');
+            const errHtml = errorMsg ? `
+                <div class="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold mb-3">
+                    <span>${errorMsg}</span>
+                </div>
+            ` : '';
+
+            container.innerHTML = `
+                <form id="forcePassForm" onsubmit="handleForcePasswordChange(event, '${user || 'admin'}')" class="space-y-4">
+                    <div class="text-center mb-3">
+                        <h2 class="text-sm font-extrabold text-navy">Set Your Own Password</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Default password must be changed before using this bot.</p>
+                    </div>
+
+                    ${errHtml}
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Current Password</label>
+                        <input type="password" id="forceCurrentPass" required placeholder="Enter current password" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50/50" />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">New Password (min 6 chars)</label>
+                        <input type="password" id="forceNewPass" required minlength="6" placeholder="Enter new strong password" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50/50" />
+                    </div>
+
+                    <button type="submit" id="forcePassBtn" class="w-full py-3 rounded-xl bg-navy hover:bg-navydark text-gold font-bold text-xs shadow-md transition-all">
+                        Save New Password & Continue
+                    </button>
+                </form>
+            `;
+        }
+
+        async function handleForcePasswordChange(e, user) {
+            e.preventDefault();
+            const currentPassword = document.getElementById('forceCurrentPass').value;
+            const newPassword = document.getElementById('forceNewPass').value;
+            const token = getToken();
+
+            try {
+                const res = await fetch('/api/change-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ currentPassword, newPassword })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    renderDashboard(user);
+                    checkStatus();
+                    startPolling();
+                } else {
+                    renderForcePasswordChange(user, data.error || 'Failed to update password.');
+                }
+            } catch (err) {
+                renderForcePasswordChange(user, 'Network error: ' + err.message);
+            }
+        }
+
+        async function activateWithHisabDesk() {
+            const token = getToken();
+            try {
+                const res = await fetch('/api/activation-info', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await res.json();
+                if (data.success && data.activateUrl) {
+                    window.open(data.activateUrl, '_blank', 'noopener');
+                } else {
+                    alert('Error: ' + (data.error || 'Unable to generate activation link'));
+                }
+            } catch (e) {
+                alert('Request failed: ' + e.message);
             }
         }
 
@@ -292,8 +380,20 @@
                                 </div>
                             </div>
 
-                            <!-- Logout WhatsApp Device -->
-                            <div class="pt-2">
+                            <!-- Activate, Change Password & Logout WhatsApp Device -->
+                            <div class="pt-2 space-y-2">
+                                <button 
+                                    onclick="activateWithHisabDesk()" 
+                                    class="w-full py-2.5 rounded-xl bg-navy hover:bg-navydark text-gold font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-98"
+                                >
+                                    <span>Activate / Link with HisabDesk</span>
+                                </button>
+                                <button 
+                                    onclick="openChangePasswordModal()" 
+                                    class="w-full py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-98"
+                                >
+                                    <span>Change Admin Password</span>
+                                </button>
                                 <button 
                                     onclick="confirmLogoutDevice()" 
                                     class="w-full py-2.5 rounded-xl border border-red-200 bg-red-50/50 hover:bg-red-100/80 text-red-700 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-98"
@@ -315,6 +415,10 @@
                                 <img src="${data.qrImage}" alt="WhatsApp QR Code" class="w-52 h-52 rounded-xl">
                             </div>
                             <p class="text-[11px] text-slate-400 font-medium">QR updates automatically. Scan within 20 seconds.</p>
+                            <div class="flex items-center justify-center gap-3 pt-1">
+                                <button onclick="activateWithHisabDesk()" class="px-3 py-1.5 rounded-lg bg-navy text-gold text-xs font-bold">Activate with HisabDesk</button>
+                                <button onclick="openChangePasswordModal()" class="text-xs font-bold text-navy underline">Change Password</button>
+                            </div>
                         </div>
                     `;
                 } else {
@@ -363,6 +467,33 @@
             } catch {}
             setToken('');
             renderLoginForm('Console locked successfully. Enter ID and Password to reopen.');
+        }
+
+        async function openChangePasswordModal() {
+            const currentPassword = prompt('Enter current admin password:');
+            if (!currentPassword) return;
+            const newPassword = prompt('Enter new admin password (min 6 characters):');
+            if (!newPassword) return;
+
+            const token = getToken();
+            try {
+                const res = await fetch('/api/change-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ currentPassword, newPassword })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('✓ Password updated successfully!');
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to update password'));
+                }
+            } catch (e) {
+                alert('Request failed: ' + e.message);
+            }
         }
 
         function startPolling() {
